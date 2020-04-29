@@ -14,7 +14,10 @@ import junit.framework.TestCase
 import org.jetbrains.kotlin.idea.inspections.findExistingEditor
 import org.jetbrains.kotlin.idea.multiplatform.setupMppProjectFromDirStructure
 import org.jetbrains.kotlin.idea.stubs.AbstractMultiModuleTest
-import org.jetbrains.kotlin.idea.test.*
+import org.jetbrains.kotlin.idea.test.DirectiveBasedActionUtils
+import org.jetbrains.kotlin.idea.test.PluginTestCaseBase
+import org.jetbrains.kotlin.idea.test.allKotlinFiles
+import org.jetbrains.kotlin.idea.test.findFileWithCaret
 import org.jetbrains.kotlin.idea.util.application.executeCommand
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.test.InTextDirectivesUtils
@@ -40,66 +43,64 @@ abstract class AbstractQuickFixMultiModuleTest : AbstractMultiModuleTest(), Quic
         val inspections = parseInspectionsToEnable(virtualFile.path, actionFileText).toTypedArray()
         enableInspectionTools(*inspections)
 
-        configureKotlinOfficialCodeStyleAndRun(project) {
-            project.executeCommand("") {
-                var expectedErrorMessage = ""
-                try {
-                    val actionHint = ActionHint.parse(actionFile, actionFileText)
-                    val text = actionHint.expectedText
+        project.executeCommand("") {
+            var expectedErrorMessage = ""
+            try {
+                val actionHint = ActionHint.parse(actionFile, actionFileText)
+                val text = actionHint.expectedText
 
-                    val actionShouldBeAvailable = actionHint.shouldPresent()
+                val actionShouldBeAvailable = actionHint.shouldPresent()
 
-                    expectedErrorMessage = InTextDirectivesUtils.findListWithPrefixes(
-                        actionFileText,
-                        "// SHOULD_FAIL_WITH: "
-                    ).joinToString(separator = "\n")
+                expectedErrorMessage = InTextDirectivesUtils.findListWithPrefixes(
+                    actionFileText,
+                    "// SHOULD_FAIL_WITH: "
+                ).joinToString(separator = "\n")
 
-                    TypeAccessibilityChecker.testLog = StringBuilder()
-                    val log = try {
-                        AbstractQuickFixMultiFileTest.doAction(
-                            text,
-                            file,
-                            editor,
-                            actionShouldBeAvailable,
-                            actionFileName,
-                            this::availableActions,
-                            this::doHighlighting,
-                            InTextDirectivesUtils.isDirectiveDefined(actionFile.text, "// SHOULD_BE_AVAILABLE_AFTER_EXECUTION")
-                        )
+                TypeAccessibilityChecker.testLog = StringBuilder()
+                val log = try {
+                    AbstractQuickFixMultiFileTest.doAction(
+                        text,
+                        file,
+                        editor,
+                        actionShouldBeAvailable,
+                        actionFileName,
+                        this::availableActions,
+                        this::doHighlighting,
+                        InTextDirectivesUtils.isDirectiveDefined(actionFile.text, "// SHOULD_BE_AVAILABLE_AFTER_EXECUTION")
+                    )
 
-                        TypeAccessibilityChecker.testLog.toString()
-                    } finally {
-                        TypeAccessibilityChecker.testLog = null
-                    }
+                    TypeAccessibilityChecker.testLog.toString()
+                } finally {
+                    TypeAccessibilityChecker.testLog = null
+                }
 
-                    if (actionFile is KtFile) {
-                        DirectiveBasedActionUtils.checkForUnexpectedErrors(actionFile)
-                    }
+                if (actionFile is KtFile) {
+                    DirectiveBasedActionUtils.checkForUnexpectedErrors(actionFile)
+                }
 
-                    if (actionShouldBeAvailable) {
-                        compareToExpected(dirPath)
-                    }
+                if (actionShouldBeAvailable) {
+                    compareToExpected(dirPath)
+                }
 
-                    UsefulTestCase.assertEmpty(expectedErrorMessage)
-                    val logFile = File("${dirPath}log.log")
-                    if (log.isNotEmpty()) {
-                        KotlinTestUtils.assertEqualsToFile(logFile, log)
-                    } else {
-                        TestCase.assertFalse(logFile.exists())
-                    }
+                UsefulTestCase.assertEmpty(expectedErrorMessage)
+                val logFile = File("${dirPath}log.log")
+                if (log.isNotEmpty()) {
+                    KotlinTestUtils.assertEqualsToFile(logFile, log)
+                } else {
+                    TestCase.assertFalse(logFile.exists())
+                }
 
-                } catch (e: ComparisonFailure) {
-                    throw e
-                } catch (e: AssertionError) {
-                    throw e
-                } catch (e: Throwable) {
-                    if (expectedErrorMessage.isEmpty()) {
-                        e.printStackTrace()
-                        TestCase.fail(getTestName(true))
-                    } else {
-                        Assert.assertEquals("Wrong exception message", expectedErrorMessage, e.message)
-                        compareToExpected(dirPath)
-                    }
+            } catch (e: ComparisonFailure) {
+                throw e
+            } catch (e: AssertionError) {
+                throw e
+            } catch (e: Throwable) {
+                if (expectedErrorMessage.isEmpty()) {
+                    e.printStackTrace()
+                    TestCase.fail(getTestName(true))
+                } else {
+                    Assert.assertEquals("Wrong exception message", expectedErrorMessage, e.message)
+                    compareToExpected(dirPath)
                 }
             }
         }

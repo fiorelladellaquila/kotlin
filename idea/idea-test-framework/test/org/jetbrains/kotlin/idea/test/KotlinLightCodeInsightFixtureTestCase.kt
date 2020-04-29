@@ -77,6 +77,8 @@ abstract class KotlinLightCodeInsightFixtureTestCase : KotlinLightCodeInsightFix
 
     override fun setUp() {
         super.setUp()
+
+        enableKotlinOfficialCodeStyle(project)
         // We do it here to avoid possible initialization problems
         // UnusedSymbolInspection() calls IDEA UnusedDeclarationInspection() in static initializer,
         // which in turn registers some extensions provoking "modifications aren't allowed during highlighting"
@@ -102,7 +104,7 @@ abstract class KotlinLightCodeInsightFixtureTestCase : KotlinLightCodeInsightFix
 
     override fun tearDown() {
         LoggedErrorProcessor.restoreDefaultProcessor()
-
+        disableKotlinOfficialCodeStyle(project)
         super.tearDown()
 
         if (exceptions.isNotEmpty()) {
@@ -313,10 +315,13 @@ fun configureCodeStyleAndRun(
     }
 }
 
-fun configureKotlinOfficialCodeStyleAndRun(
-    project: Project,
-    body: () -> Unit
-) = configureCodeStyleAndRun(project, { KotlinStyleGuideCodeStyle.apply(it) }, body)
+fun enableKotlinOfficialCodeStyle(project: Project) {
+    KotlinStyleGuideCodeStyle.apply(CodeStyle.getSettings(project))
+}
+
+fun disableKotlinOfficialCodeStyle(project: Project) {
+    CodeStyle.getSettings(project)
+}
 
 private fun rollbackCompilerOptions(project: Project, module: Module, removeFacet: Boolean) {
     KotlinCompilerSettings.getInstance(project).update { this.additionalArguments = DEFAULT_ADDITIONAL_ARGUMENTS }
